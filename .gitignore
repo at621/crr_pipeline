@@ -1,0 +1,25 @@
+# Archive folder
+archive/
+
+# Data files
+*.parquet
+*.csv
+*.xlsx
+
+# Python
+__pycache__/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Data folders
+data/
+*.pkl
+*.pickle
+*.npy
+*.h5
+*.hdf5
+
+# Logs
+*.log
