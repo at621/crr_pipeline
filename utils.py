@@ -39,18 +39,21 @@ class DocumentCategorizer:
             return "Uncategorized", "Uncategorized"
             
     def categorize_dataset(self, df: pd.DataFrame):
-        # Make a copy to avoid modifying the original
         df_copy = df.copy()
-        categories = []
         
-        for idx, row in tqdm(df_copy.iterrows(), total=len(df_copy), desc="Categorizing Documents"):
-            # Extract text as string
-            text = str(row['Text']) if pd.notna(row['Text']) else ""
-            cat1, cat2 = self.categorize_text(text)
-            categories.append((cat1, cat2))
+        # Use tqdm.pandas() for better integration
+        tqdm.pandas(desc="Categorizing Documents")
         
-        df_copy['Category_1'] = [cat[0] for cat in categories]
-        df_copy['Category_2'] = [cat[1] for cat in categories]
+        # Apply function with progress bar
+        results = df_copy.progress_apply(
+            lambda row: self.categorize_text(str(row['Text']) if pd.notna(row['Text']) else ""),
+            axis=1
+        )
+        
+        # Unpack results
+        df_copy['Category_1'] = results.apply(lambda x: x[0])
+        df_copy['Category_2'] = results.apply(lambda x: x[1])
+        
         return df_copy
         
 

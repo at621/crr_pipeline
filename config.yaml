@@ -4,14 +4,41 @@ llm_model: gpt-4o-mini  # Changed to gpt-4o-mini for cost efficiency
 retrieval_k: 5
 
 # Categories
-categories_1:
-  - IRB
-  - SA
+Category_1:
+  - "Own Funds and Capital Tiers"
+  - "Credit Risk"
+  - "Risk Calculation Approaches"
+  - "Liquidity and Stable Funding"
+  - "Market and Trading Book Risk"
+  - "Securitisation"
+  - "Leverage and Large Exposures"
+  - "Operational Risk"
+  - "Regulatory Scope and General Rules"
+  - "Data Collection and Governance"
+  - "Other"
 
-categories_2:
-  - PD
-  - LGD
-  - In-default LGD
+Category_2:
+  - "Risk-Weighted Exposure Calculation"
+  - "Risk Weights and Correlations"
+  - "IRB Approach Requirements"
+  - "Credit Risk Mitigation"
+  - "Capital Deductions and Alternatives"
+  - "Standardised Counterparty Credit Risk"
+  - "Internal Model Method"
+  - "Central Counterparty Exposures"
+  - "Stable Funding Factors"
+  - "General Provisions and Requirements"
+  - "IRB Approach Permission"
+  - "Risk Factors and Sensitivities"
+  - "Default Risk Requirements"
+  - "Non-State Aid Instruments"
+  - "Sensitivities-Based Method"
+  - "Debt Instruments"
+  - "IRB Parameters (PD, LGD)"
+  - "Common Equity Tier 1 Items"
+  - "Prudential Consolidation Scope"
+  - "Internal Default Risk Model"
+  - "Other"
 
 # Cost configuration (per 1M tokens)
 cost_embedding_per_1m_tokens: 0.02
