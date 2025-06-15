@@ -54,6 +54,27 @@ class DocumentCategorizer:
         return df_copy
         
 
+class CostTracker:
+    def __init__(self, config):
+        self.config, self.total_cost, self.cost_breakdown = config, 0, {
+            "setup_categorization": 0, "setup_embedding": 0, "query_categorization": 0,
+            "query_embedding": 0, "query_llm_context": 0
+        }
+    def _calculate_cost(self, tokens, type):
+        if type == "embedding": return (tokens / 1_000_000) * self.config['cost_embedding_per_1m_tokens']
+        if type == "llm_input": return (tokens / 1_000_000) * self.config['cost_llm_input_per_1m_tokens']
+        if type == "llm_output": return (tokens / 1_000_000) * self.config['cost_llm_output_per_1m_tokens']
+        return 0
+        
+    def add_cost(self, tokens, type, component):
+        cost = self._calculate_cost(tokens, type)
+        self.total_cost += cost
+        if component in self.cost_breakdown: self.cost_breakdown[component] += cost
+        return cost
+        
+    def get_summary(self): return {"total_cost": self.total_cost, "breakdown": self.cost_breakdown}
+
+
 def print_summary(df):
     """Print a concise summary of the parsed data"""
     print("\n" + "="*60)
