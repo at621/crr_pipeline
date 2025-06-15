@@ -1,0 +1,22 @@
+# Model configuration
+embedding_model: text-embedding-3-small
+llm_model: gpt-4o-mini  # Changed to gpt-4o-mini for cost efficiency
+retrieval_k: 5
+
+# Categories
+categories_1:
+  - IRB
+  - SA
+
+categories_2:
+  - PD
+  - LGD
+  - In-default LGD
+
+# Cost configuration (per 1M tokens)
+cost_embedding_per_1m_tokens: 0.02
+cost_llm_input_per_1m_tokens: 0.15   # Updated for gpt-4o-mini pricing
+cost_llm_output_per_1m_tokens: 0.60  # Updated for gpt-4o-mini pricing
+
+# Cache settings
+use_cache: true

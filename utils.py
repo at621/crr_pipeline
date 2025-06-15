@@ -2,7 +2,57 @@ import pandas as pd
 import re
 import logging
 import tiktoken
+from tqdm import tqdm
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field
 
+
+class DocumentCategorizer:
+    def __init__(self, category_1_list, category_2_list, llm, cost_tracker):
+        self.llm, self.cost_tracker = llm, cost_tracker
+        class Categories(BaseModel):
+            category_1: str = Field(description=f"The approach/framework from the list: {category_1_list}")
+            category_2: str = Field(description=f"The risk parameter from the list: {category_2_list}")
+        self.parser = PydanticOutputParser(pydantic_object=Categories)
+        self.prompt = PromptTemplate(
+            template="Analyze the text and assign categories.\n{format_instructions}\nText: \"{text}\"",
+            input_variables=["text"], partial_variables={"format_instructions": self.parser.get_format_instructions()},
+        )
+        self.chain = self.prompt | self.llm | self.parser
+        
+    def categorize_text(self, text: str):
+        try:
+            # Ensure text is a string
+            text = str(text) if not isinstance(text, str) else text
+            # Limit text length to avoid token limits
+            text = text[:2000] if len(text) > 2000 else text
+            
+            input_tokens, result = len(text) // 4, self.chain.invoke({"text": text})
+            output_tokens = len(str(result)) // 4
+            self.cost_tracker.add_cost(input_tokens, "llm_input", "setup_categorization")
+            self.cost_tracker.add_cost(output_tokens, "llm_output", "setup_categorization")
+            return result.category_1, result.category_2
+        except Exception as e: 
+            print(f"Error categorizing text: {e}")
+            return "Uncategorized", "Uncategorized"
+            
+    def categorize_dataset(self, df: pd.DataFrame):
+        # Make a copy to avoid modifying the original
+        df_copy = df.copy()
+        categories = []
+        
+        for idx, row in tqdm(df_copy.iterrows(), total=len(df_copy), desc="Categorizing Documents"):
+            # Extract text as string
+            text = str(row['Text']) if pd.notna(row['Text']) else ""
+            cat1, cat2 = self.categorize_text(text)
+            categories.append((cat1, cat2))
+        
+        df_copy['Category_1'] = [cat[0] for cat in categories]
+        df_copy['Category_2'] = [cat[1] for cat in categories]
+        return df_copy
+        
 
 def print_summary(df):
     """Print a concise summary of the parsed data"""
