@@ -7,11 +7,12 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.output_parsers import PydanticOutputParser
 from pydantic import BaseModel, Field
+from langchain.callbacks import get_openai_callback
 
 
 class DocumentCategorizer:
-    def __init__(self, category_1_list, category_2_list, llm, cost_tracker):
-        self.llm, self.cost_tracker = llm, cost_tracker
+    def __init__(self, category_1_list, category_2_list, llm):
+        self.llm  = llm
         class Categories(BaseModel):
             category_1: str = Field(description=f"The approach/framework from the list: {category_1_list}")
             category_2: str = Field(description=f"The risk parameter from the list: {category_2_list}")
@@ -23,59 +24,63 @@ class DocumentCategorizer:
         self.chain = self.prompt | self.llm | self.parser
         
     def categorize_text(self, text: str):
+        """
+        Categorizes a single piece of text and returns categories along with the cost of the operation.
+        
+        Returns:
+            A tuple (str, str, float): (category_1, category_2, cost)
+        """
         try:
             # Ensure text is a string
             text = str(text) if not isinstance(text, str) else text
-            # Limit text length to avoid token limits
-            text = text[:2000] if len(text) > 2000 else text
+            # Limit text length to avoid excessive token usage
+            text = text[:3000] if len(text) > 3000 else text
             
-            input_tokens, result = len(text) // 4, self.chain.invoke({"text": text})
-            output_tokens = len(str(result)) // 4
-            self.cost_tracker.add_cost(input_tokens, "llm_input", "setup_categorization")
-            self.cost_tracker.add_cost(output_tokens, "llm_output", "setup_categorization")
-            return result.category_1, result.category_2
+            cost = 0.0
+            with get_openai_callback() as cb:
+                result = self.chain.invoke({"text": text})
+                # cb.total_cost contains the actual cost in USD for this specific call
+                cost = cb.total_cost
+                
+            return result.category_1, result.category_2, cost
+        
         except Exception as e: 
             print(f"Error categorizing text: {e}")
-            return "Uncategorized", "Uncategorized"
+            # Return uncategorized and a cost of 0.0 for the failed operation
+            return "Uncategorized", "Uncategorized", 0.0
             
-    def categorize_dataset(self, df: pd.DataFrame):
+    def categorize_dataset(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Categorizes an entire dataset in a DataFrame.
+        It tracks the cumulative cost of all operations but does not change its return signature.
+        
+        Returns:
+            pd.DataFrame: The DataFrame with new 'Category_1' and 'Category_2' columns.
+        """
         df_copy = df.copy()
         
-        # Use tqdm.pandas() for better integration
+        # Use tqdm.pandas() for better integration and progress bar
         tqdm.pandas(desc="Categorizing Documents")
         
-        # Apply function with progress bar
+        # Apply the categorize_text function. The result is a Series of tuples.
+        # Each tuple is (category_1, category_2, cost)
         results = df_copy.progress_apply(
             lambda row: self.categorize_text(str(row['Text']) if pd.notna(row['Text']) else ""),
             axis=1
         )
         
-        # Unpack results
+        # Unpack the results into separate columns
         df_copy['Category_1'] = results.apply(lambda x: x[0])
         df_copy['Category_2'] = results.apply(lambda x: x[1])
         
+        # Extract the cost (the 3rd element of each tuple), sum it,
+        # and add it to the instance's total_cost attribute.
+        run_cost = results.apply(lambda x: x[2]).sum()
+        self.total_cost += run_cost
+        
+        print(f"Cost for this dataset run: ${run_cost:.6f}")
+        
         return df_copy
-        
-
-class CostTracker:
-    def __init__(self, config):
-        self.config, self.total_cost, self.cost_breakdown = config, 0, {
-            "setup_categorization": 0, "setup_embedding": 0, "query_categorization": 0,
-            "query_embedding": 0, "query_llm_context": 0
-        }
-    def _calculate_cost(self, tokens, type):
-        if type == "embedding": return (tokens / 1_000_000) * self.config['cost_embedding_per_1m_tokens']
-        if type == "llm_input": return (tokens / 1_000_000) * self.config['cost_llm_input_per_1m_tokens']
-        if type == "llm_output": return (tokens / 1_000_000) * self.config['cost_llm_output_per_1m_tokens']
-        return 0
-        
-    def add_cost(self, tokens, type, component):
-        cost = self._calculate_cost(tokens, type)
-        self.total_cost += cost
-        if component in self.cost_breakdown: self.cost_breakdown[component] += cost
-        return cost
-        
-    def get_summary(self): return {"total_cost": self.total_cost, "breakdown": self.cost_breakdown}
 
 
 def print_summary(df):
